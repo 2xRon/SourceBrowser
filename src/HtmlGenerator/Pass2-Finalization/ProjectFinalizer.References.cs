@@ -769,6 +769,22 @@ namespace Microsoft.SourceBrowser.HtmlGenerator
 
             public void Add(string symbolId, byte[] fragment)
             {
+                if (!IsPackableId(symbolId))
+                {
+                    // Special pages like mscorlib's EmptyArrayAllocation.html have non-hex names the
+                    // 16-byte index records can't hold; as loose files they fall through the middleware
+                    // to static-file serving.
+                    if (symbolId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                    {
+                        Log.Exception("Skipping loose reference file for unsafe id: " + symbolId, isSevere: false);
+                        return;
+                    }
+
+                    Directory.CreateDirectory(_referencesFolder);
+                    File.WriteAllBytes(Path.Combine(_referencesFolder, symbolId + ".html"), fragment);
+                    return;
+                }
+
                 if (_packStream == null)
                 {
                     Directory.CreateDirectory(_referencesFolder);
@@ -779,6 +795,25 @@ namespace Microsoft.SourceBrowser.HtmlGenerator
                 _packStream.Write(fragment, 0, fragment.Length);
                 _records.Add((symbolId, _offset, fragment.Length));
                 _offset += fragment.Length;
+            }
+
+            private static bool IsPackableId(string id)
+            {
+                if (id == null || id.Length != 16)
+                {
+                    return false;
+                }
+
+                foreach (char c in id)
+                {
+                    bool isHex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                    if (!isHex)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
             }
 
             public void Complete()
@@ -800,7 +835,7 @@ namespace Microsoft.SourceBrowser.HtmlGenerator
                     var idBytes = new byte[16];
                     foreach (var (id, offset, length) in _records)
                     {
-                        // Symbol ids are always 16 lowercase hex characters, i.e. exactly 16 ASCII bytes.
+                        // Add only packs ids that are exactly 16 lowercase hex characters, i.e. exactly 16 ASCII bytes.
                         Encoding.ASCII.GetBytes(id, 0, id.Length, idBytes, 0);
                         writer.Write(idBytes, 0, 16);
                         writer.Write(offset);
