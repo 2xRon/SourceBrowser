@@ -6,6 +6,7 @@
     <RootNamespace>Microsoft.SourceBrowser.SourceIndexServer</RootNamespace>
     <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefaultItemExcludes>$(DefaultItemExcludes);TestSite\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
